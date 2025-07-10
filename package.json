@@ -3,12 +3,12 @@
   "private": true,
   "version": "0.0.1",
   "type": "module",
-  "homepage": "https://abdullah.github.io/chat",
+  "homepage": "https://abdullah-bl.github.io/chat",
   "author": "Abdullah Studio",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/abdullah-studio/chat"
+    "url": "https://github.com/abdullah-bl/chat"
   },
   "scripts": {
     "predeploy": "npm run build",
