@@ -41,7 +41,9 @@ export function ChatSettings() {
         setModelList,
         gpuVendor,
         enableTools,
-        setEnableTools
+        setEnableTools,
+        enableThinkingStates,
+        setEnableThinkingStates
     } = useChatStore();
 
     // Initialize model list if empty
@@ -112,6 +114,23 @@ export function ChatSettings() {
                             />
                             <span className="text-sm text-muted-foreground">
                                 Allow the AI to use tools for calculations, time, weather, and web search
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Thinking States Toggle */}
+                    <div className="flex flex-col gap-2">
+                        <Label htmlFor="enable-thinking">Enable Thinking States</Label>
+                        <div className="flex items-center space-x-2">
+                            <input
+                                id="enable-thinking"
+                                type="checkbox"
+                                checked={enableThinkingStates}
+                                onChange={(e) => setEnableThinkingStates(e.target.checked)}
+                                className="rounded border-gray-300"
+                            />
+                            <span className="text-sm text-muted-foreground">
+                                Show AI thinking process with collapsible thinking indicators
                             </span>
                         </div>
                     </div>

@@ -114,7 +114,60 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Custom animations for thinking states */
+@keyframes thinking-pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes thinking-bounce {
+
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+  }
+
+  40% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes thinking-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.thinking-pulse {
+  animation: thinking-pulse 2s ease-in-out infinite;
+}
+
+.thinking-bounce {
+  animation: thinking-bounce 1.4s ease-in-out infinite;
+}
+
+.thinking-fade-in {
+  animation: thinking-fade-in 0.3s ease-out;
 }

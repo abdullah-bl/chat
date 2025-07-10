@@ -1,8 +1,10 @@
 import { useEffect, useRef, useCallback } from "react";
 import { ScrollArea } from "../ui/scroll-area";
 import { ChatMessage as ChatMessageComponent } from "./message";
+import { Thinking } from "./thinking";
 import { Info } from "@/lib/icons";
 import type { ChatMessage, Usage } from "./types";
+import { useChatStore } from "@/stores/chat";
 
 interface MessagesProps {
     messages: ChatMessage[];
@@ -11,6 +13,7 @@ interface MessagesProps {
 
 export function ChatMessages({ messages, usage }: MessagesProps) {
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const { isGenerating } = useChatStore();
 
     const scrollToBottom = useCallback(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -27,6 +30,15 @@ export function ChatMessages({ messages, usage }: MessagesProps) {
                     {messages.filter(message => message.role !== "system").map((message, index) => (
                         <ChatMessageComponent key={index} message={message} />
                     ))}
+
+                    {/* Show thinking indicator when generating */}
+                    {isGenerating && (
+                        <Thinking
+                            message="Processing your request..."
+                            type="generating"
+                        />
+                    )}
+
                     <div ref={messagesEndRef} />
                 </div>
             </ScrollArea>

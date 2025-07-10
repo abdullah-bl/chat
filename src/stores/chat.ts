@@ -36,6 +36,7 @@ interface ChatStore {
     abortController: AbortController | null;
     gpuVendor: string | null;
     enableTools: boolean;
+    enableThinkingStates: boolean;
     selectedCharacter: string | null;
     customCharacters: Array<{
         id: string;
@@ -69,6 +70,7 @@ interface ChatStore {
     setSystemPrompt: (systemPrompt: string) => void;
     setModel: (model: string) => void;
     setEnableTools: (enableTools: boolean) => void;
+    setEnableThinkingStates: (enableThinkingStates: boolean) => void;
     setSelectedCharacter: (characterId: string | null) => void;
     addCustomCharacter: (character: {
         icon: string;
@@ -219,6 +221,40 @@ const parseToolCalls = (content: string): ToolCall[] => {
     return toolCalls;
 };
 
+// Helper function to process thinking content
+const processThinkingContent = (content: string): { hasThinking: boolean; thinkingContent: string; processedContent: string; thinkingType: string } => {
+    const thinkMatch = content.match(/<think>([\s\S]*?)<\/think>/);
+    if (thinkMatch) {
+        const thinkingContent = thinkMatch[1].trim();
+        const processedContent = content.replace(/<think>[\s\S]*?<\/think>/, '').trim();
+
+        // Detect thinking type based on content
+        let thinkingType = "thinking";
+        const lowerContent = thinkingContent.toLowerCase();
+
+        if (lowerContent.includes("analyzing") || lowerContent.includes("examining") || lowerContent.includes("reviewing")) {
+            thinkingType = "analyzing";
+        } else if (lowerContent.includes("processing") || lowerContent.includes("calculating") || lowerContent.includes("computing")) {
+            thinkingType = "processing";
+        } else if (lowerContent.includes("generating") || lowerContent.includes("creating") || lowerContent.includes("writing")) {
+            thinkingType = "generating";
+        }
+
+        return {
+            hasThinking: true,
+            thinkingContent,
+            processedContent,
+            thinkingType
+        };
+    }
+    return {
+        hasThinking: false,
+        thinkingContent: '',
+        processedContent: content,
+        thinkingType: "thinking"
+    };
+};
+
 export const useChatStore = create<ChatStore>()(persist((set, get) => ({
     // Initial state
     messages: [{ role: "system", content: "You are an intelligent AI assistant with access to tools. CRITICAL RULES:\n1. NEVER say you can't provide information about time, weather, calculations, or current data\n2. ALWAYS use tools when asked about these topics\n3. Format tool calls EXACTLY like this:\n<function>tool_name</function>\n{arguments as JSON}\n\nAvailable tools:\n- get_current_time: Get current date/time (no arguments needed)\n- calculate: Perform math calculations (use expression parameter)\n- search_web: Search for information (use query parameter)\n- get_weather: Get weather info (use location parameter)\n\nExample: User asks 'What's the weather in Tokyo?' → Use get_weather tool with location 'Tokyo'" }],
@@ -243,6 +279,7 @@ export const useChatStore = create<ChatStore>()(persist((set, get) => ({
     systemPrompt: "You are an intelligent AI assistant with access to tools. CRITICAL RULES:\n1. NEVER say you can't provide information about time, weather, calculations, or current data\n2. ALWAYS use tools when asked about these topics\n3. Format tool calls EXACTLY like this:\n<function>tool_name</function>\n{arguments as JSON}\n\nAvailable tools:\n- get_current_time: Get current date/time (no arguments needed)\n- calculate: Perform math calculations (use expression parameter)\n- search_web: Search for information (use query parameter)\n- get_weather: Get weather info (use location parameter)\n\nExample: User asks 'What's the weather in Tokyo?' → Use get_weather tool with location 'Tokyo'",
     gpuVendor: null,
     enableTools: false,
+    enableThinkingStates: true,
     selectedCharacter: null,
     customCharacters: [],
 
@@ -284,6 +321,7 @@ export const useChatStore = create<ChatStore>()(persist((set, get) => ({
         loadEngine();
     },
     setEnableTools: (enableTools) => set({ enableTools }),
+    setEnableThinkingStates: (enableThinkingStates) => set({ enableThinkingStates }),
     setSelectedCharacter: (characterId) => set({ selectedCharacter: characterId }),
     addCustomCharacter: (character) => set((state) => ({
         customCharacters: [...state.customCharacters, { id: Date.now().toString(), ...character }]
@@ -338,14 +376,17 @@ export const useChatStore = create<ChatStore>()(persist((set, get) => ({
         console.log("processToolCalls called with content:", content);
         console.log("enableTools:", enableTools);
 
+        // Process thinking content first
+        const { hasThinking, thinkingContent, processedContent } = processThinkingContent(content);
+
         if (!enableTools) return content;
 
-        const toolCalls = parseToolCalls(content);
+        const toolCalls = parseToolCalls(processedContent);
         console.log("Parsed tool calls:", toolCalls);
 
         // Fallback: if no tool calls found but content suggests tools should be used
         if (toolCalls.length === 0) {
-            const fallbackTool = detectFallbackTool(content);
+            const fallbackTool = detectFallbackTool(processedContent);
             if (fallbackTool) {
                 console.log("Using fallback tool:", fallbackTool);
                 const { executeToolCall, addMessage } = get();
@@ -386,7 +427,7 @@ export const useChatStore = create<ChatStore>()(persist((set, get) => ({
 
         if (toolCalls.length === 0) return content;
 
-        let processedContent = content;
+        let finalProcessedContent = processedContent;
         const { executeToolCall, addMessage } = get();
 
         for (const toolCall of toolCalls) {
@@ -413,13 +454,18 @@ export const useChatStore = create<ChatStore>()(persist((set, get) => ({
             // Replace the function call in content with result
             const functionCallText = `<function>${toolCall.function.name}</function>\n${toolCall.function.arguments}`;
             const formattedResult = formatToolResult(toolCall.function.name, result);
-            processedContent = processedContent.replace(
+            finalProcessedContent = finalProcessedContent.replace(
                 functionCallText,
                 formattedResult
             );
         }
 
-        return processedContent;
+        // If there was thinking content, preserve it in the final result
+        if (hasThinking) {
+            return `<think>${thinkingContent}</think>\n\n${finalProcessedContent}`;
+        }
+
+        return finalProcessedContent;
     },
 
     // Complex actions
@@ -594,6 +640,7 @@ export const useChatStore = create<ChatStore>()(persist((set, get) => ({
         seed: state.seed,
         logprobs: state.logprobs,
         enableTools: state.enableTools,
+        enableThinkingStates: state.enableThinkingStates,
         selectedCharacter: state.selectedCharacter,
         customCharacters: state.customCharacters,
     }),
