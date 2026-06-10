@@ -1,17 +1,13 @@
 import { useEffect, useRef, useCallback } from "react";
-import { ScrollArea } from "../ui/scroll-area";
 import { ChatMessage as ChatMessageComponent } from "./message";
-import { Thinking } from "./thinking";
-import { Info } from "@/lib/icons";
-import type { ChatMessage, Usage } from "./types";
+import type { ChatMessage } from "./types";
 import { useChatStore } from "@/stores/chat";
 
 interface MessagesProps {
     messages: ChatMessage[];
-    usage: Usage | null;
 }
 
-export function ChatMessages({ messages, usage }: MessagesProps) {
+export function ChatMessages({ messages }: MessagesProps) {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const { isGenerating } = useChatStore();
 
@@ -19,36 +15,28 @@ export function ChatMessages({ messages, usage }: MessagesProps) {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, []);
 
-    useEffect(() => {
-        scrollToBottom();
-    }, [messages, scrollToBottom]);
+    useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
+
+    const visibleMessages = messages.filter(m => m.role !== "system");
 
     return (
-        <>
-            <ScrollArea className="flex-1 overflow-y-auto min-h-0 max-h-full">
-                <div className="space-y-4 p-4">
-                    {messages.filter(message => message.role !== "system").map((message, index) => (
-                        <ChatMessageComponent key={index} message={message} />
-                    ))}
-
-                    {/* Show thinking indicator when generating */}
-                    {isGenerating && (
-                        <Thinking
-                            message="Processing your request..."
-                            type="generating"
-                        />
-                    )}
-
-                    <div ref={messagesEndRef} />
-                </div>
-            </ScrollArea>
-
-            {usage && (
-                <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400 border-neutral-200 dark:border-neutral-800">
-                    <Info className="h-3 w-3" />
-                    <span>{usage.total_tokens} tokens used</span>
-                </div>
-            )}
-        </>
+        <div className="flex-1 overflow-y-auto">
+            <div className="max-w-3xl mx-auto px-4 py-4 space-y-4">
+                {visibleMessages.map((message, index) => (
+                    <ChatMessageComponent key={index} message={message} />
+                ))}
+                {isGenerating && !visibleMessages[visibleMessages.length - 1]?.content && (
+                    <div className="flex items-center gap-2 text-neutral-500 text-sm">
+                        <div className="flex gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce" style={{ animationDelay: "0ms" }} />
+                            <span className="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce" style={{ animationDelay: "150ms" }} />
+                            <span className="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+                        </div>
+                        <span>Thinking...</span>
+                    </div>
+                )}
+                <div ref={messagesEndRef} />
+            </div>
+        </div>
     );
-} 
+}

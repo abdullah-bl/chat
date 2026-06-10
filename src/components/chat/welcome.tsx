@@ -1,33 +1,39 @@
-import { Button } from "../ui/button";
-
 interface WelcomeProps {
-    suggestedQuestions: string[];
     onQuestionClick: (question: string) => void;
 }
 
-export function ChatWelcome({ suggestedQuestions, onQuestionClick }: WelcomeProps) {
+const questions = [
+    "What can you do?",
+    "Explain quantum computing simply",
+    "Write a haiku about coding",
+    "Help me brainstorm startup ideas",
+];
+
+export function ChatWelcome({ onQuestionClick }: WelcomeProps) {
     return (
         <div className="flex-1 flex flex-col items-center justify-center p-8">
-            <div className="text-center space-y-4 max-w-md">
+            <div className="text-center space-y-6 max-w-md">
                 <div className="space-y-2">
-                    <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">How can I help you today?</h2>
-                    <p className="text-neutral-600 dark:text-neutral-400 text-sm">Ask me anything. Private by default, no data is stored.</p>
+                    <div className="text-4xl mb-4">💬</div>
+                    <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
+                        How can I help?
+                    </h2>
+                    <p className="text-neutral-500 text-sm">
+                        Private AI running in your browser. No data leaves your device.
+                    </p>
                 </div>
-            </div>
-            {suggestedQuestions.length > 0 && (
-                <div className="w-full max-w-md space-y-2 mt-6">
-                    {suggestedQuestions.map((question, index) => (
-                        <Button
-                            key={index}
-                            variant="outline"
-                            className="w-full justify-start text-left text-sm border-neutral-300 hover:border-neutral-400 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:border-neutral-600 dark:hover:bg-neutral-800"
-                            onClick={() => onQuestionClick(question)}
+                <div className="grid grid-cols-1 gap-2">
+                    {questions.map((q, i) => (
+                        <button
+                            key={i}
+                            onClick={() => onQuestionClick(q)}
+                            className="text-left px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-800 text-sm text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
                         >
-                            {question}
-                        </Button>
+                            {q}
+                        </button>
                     ))}
                 </div>
-            )}
+            </div>
         </div>
     );
-} 
+}

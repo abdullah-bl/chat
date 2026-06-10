@@ -1,11 +1,14 @@
-import { useState } from "react";
-import { Button } from "../ui/button";
-import { Send, Square } from "@/lib/icons";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { Mic, MicOff, Send, Square } from "lucide-react";
 import { useChatStore } from "@/stores/chat";
 
 export function ChatInput() {
-    const { input, isGenerating, handleInputChange, handleSubmit, handleStop } = useChatStore();
+    const { input, isGenerating, handleInputChange, handleSubmit, handleStop, enableVoice } = useChatStore();
     const [isComposing, setIsComposing] = useState(false);
+    const [isListening, setIsListening] = useState(false);
+    const [isSpeechSupported] = useState(() => 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
+    const recognitionRef = useRef<any>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -16,49 +19,100 @@ export function ChatInput() {
     const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            if (!isComposing) {
-                handleSubmit();
-            }
+            if (!isComposing) handleSubmit();
         }
     };
 
+    // Auto-resize textarea
+    useEffect(() => {
+        if (textareaRef.current) {
+            textareaRef.current.style.height = 'auto';
+            textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 160) + 'px';
+        }
+    }, [input]);
+
+    // Voice input
+    const toggleVoice = useCallback(() => {
+        if (!isSpeechSupported || !enableVoice) return;
+
+        if (isListening && recognitionRef.current) {
+            recognitionRef.current.stop();
+            setIsListening(false);
+            return;
+        }
+
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+
+        recognition.onresult = (event: any) => {
+            let transcript = '';
+            for (let i = 0; i < event.results.length; i++) {
+                transcript += event.results[i][0].transcript;
+            }
+            handleInputChange({ target: { value: transcript } } as any);
+        };
+
+        recognition.onend = () => setIsListening(false);
+        recognition.onerror = () => setIsListening(false);
+
+        recognitionRef.current = recognition;
+        recognition.start();
+        setIsListening(true);
+    }, [isListening, isSpeechSupported, enableVoice]);
+
     return (
-        <form onSubmit={onSubmit} className="flex items-center gap-2 p-4">
-            <div className="flex-1 relative">
-                <textarea
-                    value={input}
-                    onChange={handleInputChange}
-                    onKeyDown={onKeyDown}
-                    onCompositionStart={() => setIsComposing(true)}
-                    onCompositionEnd={() => setIsComposing(false)}
-                    placeholder="Type your message..."
-                    className="w-full resize-none rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm placeholder:text-neutral-500 dark:placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-400 dark:focus:ring-neutral-600 disabled:cursor-not-allowed disabled:opacity-50 min-h-[40px] max-h-[120px] text-neutral-900 dark:text-neutral-100"
-                    rows={1}
-                    disabled={isGenerating}
-                />
-            </div>
-            {isGenerating ? (
-                <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    disabled={isGenerating ? false : (!input.trim() || isComposing)}
-                    className="h-8 w-8 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                    onClick={handleStop}
-                >
-                    <Square className="h-4 w-4 animate-pulse" />
-                </Button>
-            ) : (
-                <Button
-                    type="submit"
-                    size="icon"
-                    variant="ghost"
-                    disabled={isGenerating ? false : (!input.trim() || isComposing)}
-                    className="h-8 w-8 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                >
-                    <Send className="h-4 w-4" />
-                </Button>
-            )}
-        </form>
+        <div className="border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 p-3">
+            <form onSubmit={onSubmit} className="flex items-end gap-2 max-w-3xl mx-auto">
+                <div className="flex-1 relative">
+                    <textarea
+                        ref={textareaRef}
+                        value={input}
+                        onChange={handleInputChange}
+                        onCompositionStart={() => setIsComposing(true)}
+                        onCompositionEnd={() => setIsComposing(false)}
+                        onKeyDown={onKeyDown}
+                        placeholder="Type a message..."
+                        rows={1}
+                        className="w-full resize-none rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 dark:focus:ring-neutral-700 pr-10"
+                    />
+                </div>
+
+                {/* Voice button */}
+                {enableVoice && isSpeechSupported && (
+                    <button
+                        type="button"
+                        onClick={toggleVoice}
+                        className={`p-3 rounded-xl transition-colors ${isListening ? "bg-red-500 text-white animate-pulse" : "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700"}`}
+                        title={isListening ? "Stop listening" : "Start voice input"}
+                    >
+                        {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                    </button>
+                )}
+
+                {/* Submit/Stop button */}
+                {isGenerating ? (
+                    <button
+                        type="button"
+                        onClick={handleStop}
+                        className="p-3 rounded-xl bg-neutral-900 dark:bg-neutral-100 text-white dark:text-black hover:opacity-90"
+                        title="Stop"
+                    >
+                        <Square className="w-4 h-4" />
+                    </button>
+                ) : (
+                    <button
+                        type="submit"
+                        disabled={!input.trim()}
+                        className="p-3 rounded-xl bg-neutral-900 dark:bg-neutral-100 text-white dark:text-black hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Send"
+                    >
+                        <Send className="w-4 h-4" />
+                    </button>
+                )}
+            </form>
+        </div>
     );
 }

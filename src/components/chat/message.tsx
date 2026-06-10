@@ -1,11 +1,7 @@
 import Markdown from "react-markdown";
-import { cn } from "@/lib/utils";
 import type { ChatMessage } from "./types";
-import { Wrench, CheckCircle, Copy, Brain } from "lucide-react";
-import { Button } from "../ui/button";
-import { toast } from "sonner";
+import { Wrench, Copy, Bot } from "lucide-react";
 import { useState } from "react";
-import { Thinking } from "./thinking";
 import { useChatStore } from "@/stores/chat";
 
 interface MessageProps {
@@ -14,173 +10,71 @@ interface MessageProps {
 
 export function ChatMessage({ message }: MessageProps) {
     const isToolMessage = message.role === "tool";
-    const hasToolCalls = message.tool_calls && message.tool_calls.length > 0;
     const [showThinking, setShowThinking] = useState(false);
     const { enableThinkingStates } = useChatStore();
 
-    // Parse thinking content from <think> tags
-    const parseThinkingContent = (content: string) => {
-        const thinkMatch = content.match(/<think>([\s\S]*?)<\/think>/);
-        if (thinkMatch) {
-            const thinkingContent = thinkMatch[1].trim();
-            const regularContent = content.replace(/<think>[\s\S]*?<\/think>/, '').trim();
+    // Parse thinking blocks
+    const thinkMatch = message.content.match(/<think([\s\S]*?)<\/think>/);
+    const hasThinking = !!thinkMatch && enableThinkingStates;
+    const displayContent = hasThinking
+        ? message.content.replace(/<think[\s\S]*?<\/think>/, '').trim()
+        : message.content;
 
-            // Detect thinking type based on content
-            let thinkingType = "thinking";
-            const lowerContent = thinkingContent.toLowerCase();
-
-            if (lowerContent.includes("analyzing") || lowerContent.includes("examining") || lowerContent.includes("reviewing")) {
-                thinkingType = "analyzing";
-            } else if (lowerContent.includes("processing") || lowerContent.includes("calculating") || lowerContent.includes("computing")) {
-                thinkingType = "processing";
-            } else if (lowerContent.includes("generating") || lowerContent.includes("creating") || lowerContent.includes("writing")) {
-                thinkingType = "generating";
-            }
-
-            return {
-                thinkingContent,
-                hasThinking: true,
-                regularContent,
-                thinkingType
-            };
-        }
-        return {
-            thinkingContent: '',
-            hasThinking: false,
-            regularContent: content,
-            thinkingType: "thinking"
-        };
+    const copyToClipboard = () => {
+        navigator.clipboard.writeText(displayContent);
     };
 
-    const { thinkingContent, hasThinking, regularContent, thinkingType } = parseThinkingContent(message.content);
+    if (isToolMessage) {
+        return (
+            <div className="flex justify-center">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-xs text-neutral-500 max-w-md">
+                    <Wrench className="w-3 h-3" />
+                    <span className="truncate">{message.content}</span>
+                </div>
+            </div>
+        );
+    }
 
-    const handleCopy = () => {
-        navigator.clipboard.writeText(message.content);
-        toast.success("Copied to clipboard", {
-            description: "You can paste it anywhere",
-        });
-    };
+    if (message.role === "user") {
+        return (
+            <div className="flex justify-end">
+                <div className="max-w-[80%] bg-neutral-900 dark:bg-neutral-100 text-white dark:text-black px-4 py-2.5 rounded-2xl rounded-br-sm text-sm">
+                    {message.content}
+                </div>
+            </div>
+        );
+    }
 
+    // Assistant message
     return (
-        <div
-            className={cn(
-                "flex",
-                message.role === "user" ? "justify-end" : "justify-start"
-            )}
-        >
-            <div
-                className={cn(
-                    "max-w-[85%] rounded-lg px-4 py-3",
-                    message.role === "user"
-                        ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
-                        : message.role === "tool"
-                            ? "bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800"
-                            : hasToolCalls
-                                ? "bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800"
-                                : "bg-neutral-100 dark:bg-neutral-800"
-                )}
-            >
-                {/* Tool call indicator */}
-                {hasToolCalls && (
-                    <div className="flex items-center gap-2 mb-2 text-sm text-yellow-700 dark:text-yellow-300">
-                        <Wrench className="h-4 w-4" />
-                        <span>Tool call: {message.tool_calls![0].function.name}</span>
+        <div className="flex gap-3">
+            <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center shrink-0 mt-0.5">
+                <Bot className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div className="flex-1 min-w-0 space-y-2">
+                {hasThinking && (
+                    <div
+                        className="cursor-pointer text-xs text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+                        onClick={() => setShowThinking(!showThinking)}
+                    >
+                        {showThinking ? thinkMatch![1].trim() : "💭 Click to see reasoning"}
                     </div>
                 )}
-
-                {/* Tool result indicator */}
-                {isToolMessage && (
-                    <div className="flex items-center gap-2 mb-2 text-sm text-blue-700 dark:text-blue-300">
-                        <CheckCircle className="h-4 w-4" />
-                        <span>Tool result</span>
+                {displayContent && (
+                    <div className="prose prose-sm dark:prose-invert max-w-none text-sm text-neutral-800 dark:text-neutral-200 [&_pre]:bg-neutral-100 [&_pre]:dark:bg-neutral-800 [&_pre]:rounded-lg [&_pre]:p-3 [&_code]:text-xs">
+                        <Markdown>{displayContent}</Markdown>
                     </div>
                 )}
-
-                {/* Thinking indicator */}
-                {hasThinking && enableThinkingStates && (
-                    <div className="mb-3 thinking-fade-in">
-                        <div className="flex items-center gap-2 mb-2 text-sm">
-                            <div className="flex items-center gap-2 text-purple-700 dark:text-purple-300">
-                                <Brain className="h-4 w-4 thinking-pulse" />
-                                <span className="font-medium">{thinkingType.charAt(0).toUpperCase() + thinkingType.slice(1)} process</span>
-                            </div>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 px-2 text-xs hover:bg-purple-100 dark:hover:bg-purple-900/30"
-                                onClick={() => setShowThinking(!showThinking)}
-                            >
-                                {showThinking ? "Hide" : "Show"}
-                            </Button>
-                        </div>
-                        {showThinking && (
-                            <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-md p-3 mb-3 thinking-fade-in">
-                                <div className="prose dark:prose-invert max-w-none prose-sm prose-p:leading-relaxed prose-pre:p-0">
-                                    <Markdown
-                                        components={{
-                                            p: ({ children }) => <p className="mb-2 last:mb-0 text-purple-800 dark:text-purple-200">{children}</p>,
-                                            pre: ({ children }) => (
-                                                <pre className="bg-purple-100 dark:bg-purple-900/50 p-3 rounded-md overflow-x-auto my-2 text-sm border border-purple-200 dark:border-purple-700">
-                                                    {children}
-                                                </pre>
-                                            ),
-                                            code: ({ children }) => (
-                                                <code className="bg-purple-100 dark:bg-purple-900/50 px-1.5 py-0.5 rounded text-sm border border-purple-200 dark:border-purple-700">
-                                                    {children}
-                                                </code>
-                                            ),
-                                        }}
-                                    >
-                                        {thinkingContent}
-                                    </Markdown>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* Regular content */}
-                {regularContent && (
-                    <div className="prose dark:prose-invert max-w-none prose-sm prose-p:leading-relaxed prose-pre:p-0">
-                        <Markdown
-                            components={{
-                                p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                                pre: ({ children }) => (
-                                    <pre className="bg-neutral-200 dark:bg-neutral-700 p-3 rounded-md overflow-x-auto my-2 text-sm">
-                                        {children}
-                                    </pre>
-                                ),
-                                code: ({ children }) => (
-                                    <code className="bg-neutral-200 dark:bg-neutral-700 px-1.5 py-0.5 rounded text-sm">
-                                        {children}
-                                    </code>
-                                ),
-                                ul: ({ children }) => <ul className="list-disc pl-4 my-2">{children}</ul>,
-                                ol: ({ children }) => <ol className="list-decimal pl-4 my-2">{children}</ol>,
-                                li: ({ children }) => <li className="my-1">{children}</li>,
-                                h1: ({ children }) => <h1 className="text-xl font-bold my-3">{children}</h1>,
-                                h2: ({ children }) => <h2 className="text-lg font-bold my-2">{children}</h2>,
-                                h3: ({ children }) => <h3 className="text-base font-bold my-2">{children}</h3>,
-                                blockquote: ({ children }) => (
-                                    <blockquote className="border-l-4 border-neutral-300 dark:border-neutral-600 pl-4 my-2 italic">
-                                        {children}
-                                    </blockquote>
-                                ),
-                            }}
-                        >
-                            {regularContent}
-                        </Markdown>
-                        {message.role === "assistant" && (
-                            <div className="flex items-center gap-2 mt-2">
-                                <Button variant="ghost" size="icon" className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400" onClick={handleCopy}>
-                                    <Copy className="w-4 h-4" />
-                                    <span className="text-xs">Copy</span>
-                                </Button>
-                            </div>
-                        )}
-                    </div>
-                )}
+                <div className="flex items-center gap-1">
+                    <button
+                        onClick={copyToClipboard}
+                        className="p-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-600"
+                        title="Copy"
+                    >
+                        <Copy className="w-3 h-3" />
+                    </button>
+                </div>
             </div>
         </div>
     );
-} 
+}

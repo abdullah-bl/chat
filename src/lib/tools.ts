@@ -32,13 +32,19 @@ export const tools: Tool[] = [
         },
         execute: async (args: { expression: string }) => {
             try {
-                // Safe evaluation - only allow basic math operations
+                // Safe math parser — no eval()
                 const sanitized = args.expression.replace(/[^0-9+\-*/().\s]/g, '');
-                const result = eval(sanitized);
+                if (!sanitized.trim()) {
+                    return { error: "Invalid expression", expression: args.expression };
+                }
+                // Simple recursive descent parser for basic math
+                const result = safeMathEval(sanitized);
+                if (result === null || !isFinite(result)) {
+                    return { error: "Invalid mathematical expression", expression: args.expression };
+                }
                 return {
                     expression: args.expression,
                     result: result,
-                    sanitized_expression: sanitized
                 };
             } catch (error) {
                 return {
@@ -62,119 +68,101 @@ export const tools: Tool[] = [
             required: ["query"]
         },
         execute: async (args: { query: string }) => {
-            // Simulated web search - in a real app, you'd integrate with a search API
             return {
                 query: args.query,
                 results: [
                     {
                         title: `Search results for: ${args.query}`,
-                        snippet: `This is a simulated search result for "${args.query}". In a real implementation, this would connect to a search API like Google, Bing, or DuckDuckGo.`,
-                        url: `https://example.com/search?q=${encodeURIComponent(args.query)}`
+                        snippet: `This is a simulated search result for "${args.query}". In a real implementation, this would connect to a search API.`,
                     }
                 ],
-                note: "This is a simulated search. For real web search, integrate with a search API."
+                note: "Web search is simulated in this client-side demo."
             };
         }
     },
     {
         name: "get_weather",
-        description: "Get current weather information (simulated)",
+        description: "Get current weather information for a location (simulated)",
         parameters: {
             type: "object",
             properties: {
                 location: {
                     type: "string",
-                    description: "City name or location"
+                    description: "The city or location to get weather for"
                 }
             },
             required: ["location"]
         },
         execute: async (args: { location: string }) => {
-            // Simulated weather data
-            const conditions = ["Sunny", "Cloudy", "Rainy", "Snowy", "Partly Cloudy"];
-            const randomCondition = conditions[Math.floor(Math.random() * conditions.length)];
-            const randomTemp = Math.floor(Math.random() * 30) + 10; // 10-40°C
-
             return {
                 location: args.location,
-                temperature: `${randomTemp}°C`,
-                condition: randomCondition,
-                humidity: `${Math.floor(Math.random() * 40) + 40}%`,
-                note: "This is simulated weather data. For real weather, integrate with a weather API."
+                temperature: `${Math.floor(Math.random() * 20 + 15)}°C`,
+                condition: ["Sunny", "Partly Cloudy", "Cloudy", "Light Rain"][Math.floor(Math.random() * 4)],
+                humidity: `${Math.floor(Math.random() * 40 + 40)}%`,
+                note: "Weather data is simulated in this client-side demo."
             };
         }
     }
 ];
 
-// Function to find a tool by name
-export const findTool = (name: string): Tool | undefined => {
+export function findTool(name: string): Tool | undefined {
     return tools.find(tool => tool.name === name);
-};
+}
 
-// Function to get tool schemas for the AI
-export const getToolSchemas = () => {
-    return tools.map(tool => ({
-        type: "function" as const,
-        function: {
-            name: tool.name,
-            description: tool.description,
-            parameters: tool.parameters
+/** Safe math evaluator — supports +, -, *, /, (), decimals. No eval(). */
+function safeMathEval(expr: string): number | null {
+    let pos = 0;
+    const s = expr.replace(/\s+/g, '');
+
+    function parseExpr(): number | null {
+        let result = parseTerm();
+        if (result === null) return null;
+        while (pos < s.length && (s[pos] === '+' || s[pos] === '-')) {
+            const op = s[pos++];
+            const right = parseTerm();
+            if (right === null) return null;
+            result = op === '+' ? result + right : result - right;
         }
-    }));
-};
-
-// Test function to verify tool parsing
-export const testToolParsing = () => {
-    const testContent = `Let me get the current time for you.
-
-<function>get_current_time</function>
-{}
-
-The current time is shown above.`;
-
-    console.log("Testing tool parsing with:", testContent);
-
-    // Simple regex test
-    const functionCallRegex = /<function>([^<]+)<\/function>/g;
-    let match;
-
-    while ((match = functionCallRegex.exec(testContent)) !== null) {
-        console.log("Found function call:", match[1]);
+        return result;
     }
-};
 
-// Test fallback tool detection
-export const testFallbackDetection = () => {
-    const testCases = [
-        "What time is it?",
-        "Calculate 2 + 2",
-        "What's the weather in Tokyo?",
-        "Search for AI news"
-    ];
-
-    testCases.forEach(testCase => {
-        const lowerContent = testCase.toLowerCase();
-        let detectedTool = null;
-
-        if (lowerContent.includes('time') || lowerContent.includes('what time') || lowerContent.includes('current time')) {
-            detectedTool = { name: 'get_current_time', args: '{}' };
-        } else if (lowerContent.includes('calculate') || lowerContent.includes('math') || lowerContent.includes('+') || lowerContent.includes('*') || lowerContent.includes('-') || lowerContent.includes('/')) {
-            const mathMatch = testCase.match(/(\d+\s*[\+\-\*\/]\s*\d+)/);
-            if (mathMatch) {
-                detectedTool = { name: 'calculate', args: JSON.stringify({ expression: mathMatch[1] }) };
-            }
-        } else if (lowerContent.includes('weather') || lowerContent.includes('temperature')) {
-            const locationMatch = testCase.match(/in\s+([A-Za-z\s]+)/i);
-            if (locationMatch) {
-                detectedTool = { name: 'get_weather', args: JSON.stringify({ location: locationMatch[1].trim() }) };
-            }
-        } else if (lowerContent.includes('search') || lowerContent.includes('find') || lowerContent.includes('look up')) {
-            const searchMatch = testCase.match(/for\s+(.+)/i);
-            if (searchMatch) {
-                detectedTool = { name: 'search_web', args: JSON.stringify({ query: searchMatch[1].trim() }) };
-            }
+    function parseTerm(): number | null {
+        let result = parseFactor();
+        if (result === null) return null;
+        while (pos < s.length && (s[pos] === '*' || s[pos] === '/')) {
+            const op = s[pos++];
+            const right = parseFactor();
+            if (right === null) return null;
+            if (op === '/' && right === 0) return null;
+            result = op === '*' ? result * right : result / right;
         }
+        return result;
+    }
 
-        console.log(`Test case: "${testCase}" -> Detected tool:`, detectedTool);
-    });
-};
+    function parseFactor(): number | null {
+        if (pos < s.length && s[pos] === '(') {
+            pos++;
+            const result = parseExpr();
+            if (pos >= s.length || s[pos] !== ')') return null;
+            pos++;
+            return result;
+        }
+        // Unary minus
+        if (pos < s.length && s[pos] === '-') {
+            pos++;
+            const val = parseFactor();
+            return val === null ? null : -val;
+        }
+        if (pos < s.length && s[pos] === '+') {
+            pos++;
+            return parseFactor();
+        }
+        const start = pos;
+        while (pos < s.length && ((s[pos] >= '0' && s[pos] <= '9') || s[pos] === '.')) pos++;
+        if (pos === start) return null;
+        return parseFloat(s.substring(start, pos));
+    }
+
+    const result = parseExpr();
+    return pos === s.length ? result : null;
+}
