@@ -45,7 +45,7 @@ export function ChatInput() {
         const recognition = new SpeechRecognition();
         recognition.continuous = false;
         recognition.interimResults = true;
-        recognition.lang = 'en-US';
+        recognition.lang = navigator.language || 'en-US';
 
         recognition.onresult = (event: any) => {
             let transcript = '';

@@ -140,7 +140,7 @@ function Toggle({ label, description, value, onChange }: {
                 onClick={() => onChange(!value)}
                 className={`w-10 h-6 rounded-full transition-colors relative ${value ? "bg-blue-500" : "bg-neutral-300 dark:bg-neutral-700"}`}
             >
-                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${value ? "left-4.5" : "left-0.5"}`} />
+                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${value ? "translate-x-4" : ""}`} />
             </button>
         </div>
     );

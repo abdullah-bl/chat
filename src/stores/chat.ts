@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { ChatMessage, Usage, Progress, ToolCall } from "@/components/chat/types";
-import { findTool } from "@/lib/tools";
+import { findTool, tools } from "@/lib/tools";
 
 const loadMLCLibraries = async () => {
     const [{ CreateWebWorkerMLCEngine }] = await Promise.all([
@@ -121,20 +121,12 @@ const processThinkingContent = (content: string) => {
 
 const parseToolCalls = (content: string): ToolCall[] => {
     const toolCalls: ToolCall[] = [];
-    const regex = /<function>([^<]+)<\/function>/g;
+    // Match <function>name</function> optionally followed by JSON args on same/next line
+    const regex = /<function>\s*(\w+)\s*<\/function>\s*\n?\s*(\{[^}]*\})?/g;
     let match;
     while ((match = regex.exec(content)) !== null) {
         const name = match[1].trim();
-        const after = content.substring(match.index + match[0].length);
-        const lines = after.split('\n');
-        let args = '{}';
-        for (let i = 0; i < Math.min(5, lines.length); i++) {
-            const line = lines[i].trim();
-            if (line.startsWith('{') && line.includes('}')) {
-                args = line;
-                break;
-            }
-        }
+        const args = match[2]?.trim() || '{}';
         toolCalls.push({
             id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             type: "function",
@@ -152,6 +144,15 @@ const formatToolResult = (name: string, result: any): string => {
         case 'search_web': return result.results?.[0]?.snippet || result.note || 'No results.';
         default: return JSON.stringify(result);
     }
+};
+
+const buildToolsPrompt = (): string => {
+    const toolLines = tools.map(t => {
+        const params = Object.entries(t.parameters.properties || {})
+            .map(([key, val]: [string, any]) => `${key}: ${val.description || val.type}`);
+        return `- ${t.name}(${params.join(", ") || ""}): ${t.description}`;
+    }).join("\n");
+    return `\n\n## Available Tools\nYou can call tools. Format:\n<function>tool_name</function>\n{"argument": "value"}\n\nTools:\n${toolLines}`;
 };
 
 export const useChatStore = create<ChatStore>()(persist((set, get) => ({
@@ -256,15 +257,19 @@ export const useChatStore = create<ChatStore>()(persist((set, get) => ({
     },
 
     getCurrentSystemPrompt: () => {
-        const { selectedCharacter, customCharacters, systemPrompt } = get();
+        const { selectedCharacter, customCharacters, systemPrompt, enableTools } = get();
+        let prompt = systemPrompt;
         if (selectedCharacter) {
             const custom = customCharacters.find(c => c.id === selectedCharacter);
-            if (custom) return custom.system_prompt;
-            const { llm_system_characters } = require("@/lib/characters");
-            const predefined = llm_system_characters.find((c: any) => c.name === selectedCharacter);
-            if (predefined) return predefined.system_prompt;
+            if (custom) prompt = custom.system_prompt;
+            else {
+                const { llm_system_characters } = require("@/lib/characters");
+                const predefined = llm_system_characters.find((c: any) => c.name === selectedCharacter);
+                if (predefined) prompt = predefined.system_prompt;
+            }
         }
-        return systemPrompt;
+        if (enableTools) prompt += buildToolsPrompt();
+        return prompt;
     },
 
     handleInputChange: (e) => set({ input: e.target.value }),
@@ -334,23 +339,22 @@ export const useChatStore = create<ChatStore>()(persist((set, get) => ({
         const isFirst = conv.messages.filter(m => m.role !== "system").length === 0;
         const title = isFirst ? message.slice(0, 50) + (message.length > 50 ? "..." : "") : conv.title;
 
-        const updatedMsgs = [
-            { role: "system" as const, content: systemPrompt },
-            ...conv.messages.filter(m => m.role !== "system" && m.role !== "tool"),
-            userMsg,
-        ];
-
+        // Clean message list: fresh system + existing non-system messages + new user message
         set(s => ({
             conversations: s.conversations.map(c => c.id === convId ? {
                 ...c,
                 title,
-                messages: [...c.messages.filter(m => m.role === "system" ? false : true), { role: "system" as const, content: systemPrompt }, ...updatedMsgs.filter(m => m.role !== "system")],
+                messages: [
+                    { role: "system" as const, content: systemPrompt },
+                    ...conv.messages.filter(m => m.role !== "system"),
+                    userMsg,
+                ],
                 updatedAt: Date.now(),
             } : c),
             isGenerating: true,
         }));
 
-        // Simpler: rebuild messages from conversation
+        // Build API messages (exclude tool messages for the LLM)
         const currentConv = get().conversations.find(c => c.id === convId)!;
         const apiMessages = currentConv.messages
             .filter(m => m.role !== "tool")
