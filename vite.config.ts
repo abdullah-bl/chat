@@ -19,6 +19,7 @@ export default defineConfig({
       output: {
         manualChunks: {
           'web-llm': ['@mlc-ai/web-llm'],
+          'transformers': ['@huggingface/transformers'],
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           'ui-vendor': ['@radix-ui/react-dialog', '@radix-ui/react-label', '@radix-ui/react-scroll-area', '@radix-ui/react-select', '@radix-ui/react-slot', 'lucide-react'],
         },

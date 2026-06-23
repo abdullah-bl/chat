@@ -4,6 +4,7 @@ import { Header } from "@/components/layout/Header";
 import { ChatPage } from "@/pages/ChatPage";
 import { CharactersPage } from "@/pages/CharactersPage";
 import { SettingsPage } from "@/pages/SettingsPage";
+import { AgentPage } from "@/pages/AgentPage";
 import { Toaster } from "sonner";
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
                         <Route path="/" element={<ChatPage />} />
                         <Route path="/characters" element={<CharactersPage />} />
                         <Route path="/settings" element={<SettingsPage />} />
+                        <Route path="/agent" element={<AgentPage />} />
                     </Routes>
                 </div>
             </div>

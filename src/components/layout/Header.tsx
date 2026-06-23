@@ -1,5 +1,5 @@
 import { useChatStore } from "@/stores/chat";
-import { Menu, Moon, Sun, Settings, Users } from "lucide-react";
+import { Menu, Moon, Sun, Settings, Users, Sparkles } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
 export function Header() {
@@ -45,6 +45,13 @@ export function Header() {
                     title="Characters"
                 >
                     <Users className="w-4 h-4" />
+                </Link>
+                <Link
+                    to="/agent"
+                    className={`p-2 rounded-lg text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800 ${location.pathname === '/agent' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400' : ''}`}
+                    title="AI Agent"
+                >
+                    <Sparkles className="w-4 h-4" />
                 </Link>
                 <Link
                     to="/settings"
