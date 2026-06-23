@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/chat/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Private AI chat running locally in your browser. Powered by WebLLM. No data sent to servers." />
+  <meta name="theme-color" content="#0a0a0a" />
+  <meta property="og:title" content="AI Chat | Abdullah.Studio" />
+  <meta property="og:description" content="Private AI chat running locally in your browser. Powered by WebLLM." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://abdullah-bl.github.io/chat/" />
+  <title>AI Chat | Abdullah.Studio</title>
+  <script type="module" crossorigin src="/chat/assets/index-BGeoE1m3.js"></script>
+  <link rel="modulepreload" crossorigin href="/chat/assets/react-vendor-D7wBh9oE.js">
+  <link rel="modulepreload" crossorigin href="/chat/assets/ui-vendor-kYB0YQIQ.js">
+  <link rel="stylesheet" crossorigin href="/chat/assets/index-C9S0pHDI.css">
+</head>
+
+<body class="dark">
+  <div id="root"></div>
+  <script>
+    // SPA redirect receiver — restores path from 404.html redirect
+    (function() {
+      var l = window.location;
+      if (l.search.length > 1) {
+        var q = l.search.slice(1).replace(/~and~/g, '&');
+        var parts = q.split('&');
+        var path = parts[0];
+        var rest = parts.slice(1).join('&');
+        if (path) {
+          var newPath = '/chat/' + path;
+          var newSearch = rest ? '?' + rest : '';
+          history.replaceState(null, '', newPath + newSearch + l.hash);
+        }
+      }
+    })();
+  </script>
+</body>
+
+</html>
