@@ -51,7 +51,7 @@ Code runs instantly. Results are fed back to you. Use code for:
 For simple questions, answer directly without code.
 Be concise. Use the user's language.`;
 
-const DEFAULT_MODEL = "Qwen/Qwen2.5-1.5B-Instruct";
+const DEFAULT_MODEL = "onnx-community/gemma-4-E2B-it-ONNX";
 
 // Lazy-loaded singletons
 let _pipeline: any = null;
