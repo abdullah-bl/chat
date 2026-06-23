@@ -16,6 +16,23 @@
 
 <body class="dark">
   <div id="root"></div>
+  <script>
+    // SPA redirect receiver — restores path from 404.html redirect
+    (function() {
+      var l = window.location;
+      if (l.search.length > 1) {
+        var q = l.search.slice(1).replace(/~and~/g, '&');
+        var parts = q.split('&');
+        var path = parts[0];
+        var rest = parts.slice(1).join('&');
+        if (path) {
+          var newPath = '/chat/' + path;
+          var newSearch = rest ? '?' + rest : '';
+          history.replaceState(null, '', newPath + newSearch + l.hash);
+        }
+      }
+    })();
+  </script>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 
